@@ -1,0 +1,7 @@
+heroku create
+heroku config:set TWITTER_CONSUMER_KEY=...
+heroku config:set TWITTER_CONSUMER_SECRET=...
+git push heroku master
+heroku ps:scale worker=1
+heroku open
+heroku logs --tail
