@@ -59,7 +59,7 @@ countQueue = ->
                 lastInfluencer = user
 
         if lastInfluencer
-            yield redisClient.set('twitter:lastinfluencer', JSON.stringify(lastinfluencer))
+            yield redisClient.set('twitter:lastinfluencer', JSON.stringify(lastInfluencer))
 
         # virally check out influcencers' followers
         if influencerIds.length > 0
