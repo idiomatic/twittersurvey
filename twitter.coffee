@@ -1,13 +1,13 @@
 #!/usr/bin/coffee
 # copyright 2015, r. brian harrison.  all rights reserved.
-
+#
+# TODO save limits into redis
 
 assert  = require 'assert'
 util    = require 'util'
 co      = require 'co'
 redis   = require 'redis'
 coRedis = require 'co-redis'
-request = require 'co-request'
 limits  = require 'co-limits'
 Twit    = require 'twit'
 
