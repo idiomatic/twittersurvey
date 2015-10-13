@@ -53,7 +53,7 @@ countQueue = ->
             if followers_count >= influential
                 console.log "#{screen_name} (#{id}) has #{followers_count}"
                 influencerIds.push(id)
-                yield redisClient.zadd('twitter:influence', followers_count, name)
+                yield redisClient.zadd('twitter:influence', followers_count, screen_name)
                 yield redisClient.hset('twitter:influencers', screen_name, JSON.stringify(user))
 
         # virally check out influcencers' followers
