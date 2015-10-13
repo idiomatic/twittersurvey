@@ -1,5 +1,6 @@
 #!/usr/bin/env coffee
 
+util      = require 'util'
 koa       = require 'koa'
 #route     = require 'koa-route'
 #koaStatic = require 'koa-static'
@@ -26,6 +27,7 @@ start = ->
         followers      = yield redisClient.scard('twitter:followers')
         friends        = yield redisClient.scard('twitter:friends')
         influencers    = yield redisClient.zcard('twitter:influence')
+        lastInfluencer = yield redisClient.get('twitter:lastinfluencer')
         @body = """
         <html><body>
         <h2>queues</h2>
@@ -36,6 +38,7 @@ start = ->
         followers #{followers}<br/>
         friends #{friends}<br/>
         influencers #{influencers}<br/>
+        <pre>#{util.inspect(lastInfluencer)}</pre>
         """
     app.listen(port)
 

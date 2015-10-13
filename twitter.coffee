@@ -48,6 +48,7 @@ countQueue = ->
 
         # discriminate
         influencerIds = []
+        lastInfluencer = null
         for user in users or []
             {followers_count, screen_name, id} = user
             if followers_count >= influential
@@ -55,6 +56,10 @@ countQueue = ->
                 influencerIds.push(id)
                 yield redisClient.zadd('twitter:influence', followers_count, screen_name)
                 yield redisClient.hset('twitter:influencers', screen_name, JSON.stringify(user))
+                lastInfluencer = user
+
+        if lastInfluencer
+            yield redisClient.set('twitter:lastinfluencer', JSON.stringify(lastinfluencer))
 
         # virally check out influcencers' followers
         if influencerIds.length > 0
