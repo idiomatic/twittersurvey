@@ -66,13 +66,14 @@ start = ->
         @body = s
         @type = 'text/csv'
         @attachment()
-        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', 0, 1000)
+        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', 0, 5000)
         influencers = dictify(influencers)
-        do ->
-            s.write(['screen_name', 'followers_count'])
-            for screen_name, followers_count of influencers
-                s.write([screen_name, followers_count])
-            s.end()
+        s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url'])
+        for screen_name, followers_count of influencers
+            influencer = yield redisClient.hget('twitter:influencers', screen_name)
+            {name, description, location, url} = JSON.parse(influencer)
+            s.write([screen_name, followers_count, name, description, location, url])
+        s.end()
         yield return
 
     app.listen(port)
