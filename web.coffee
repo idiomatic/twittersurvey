@@ -1,12 +1,14 @@
 #!/usr/bin/env coffee
+# copyright 2015, r. brian harrison.  all rights reserved.
 
 util      = require 'util'
 koa       = require 'koa'
-#route     = require 'koa-route'
+route     = require 'koa-route'
 #koaStatic = require 'koa-static'
 co        = require 'co'
 redis     = require 'redis'
 coRedis   = require 'co-redis'
+csv       = require 'fast-csv'
 
 
 port = process.env.PORT ? 3002
@@ -16,11 +18,18 @@ createRedisClient = ->
     return coRedis(redis.createClient(process.env.REDIS_URL))
 
 
+dictify = (a) ->
+    d = {}
+    for v, i in a
+        d[v] = a[i + 1]
+    return d
+
+
 start = ->
     redisClient = createRedisClient()
 
     app = koa()
-    app.use (next) ->
+    app.use route.get '/', (next) ->
         countqueue     = yield redisClient.llen('twitter:countqueue')
         followersqueue = yield redisClient.llen('twitter:followersqueue')
         friendsqueue   = yield redisClient.llen('twitter:friendsqueue')
@@ -36,7 +45,7 @@ start = ->
         <h2>progress</h2>
         followers #{followers}<br/>
         friends #{friends}<br/>
-        influencers #{influencers}<br/>
+        influencers #{influencers} <a href="/influencers.csv">download</a><br/>
         <h2>queues</h2>
         count #{countqueue}<br/>
         followers #{followersqueue}<br/>
@@ -49,6 +58,21 @@ start = ->
             document.body.appendChild(formatter.render())
         </script>
         """
+
+    app.use route.get '/influencers.csv', (next) ->
+        s = csv.createWriteStream()
+        @body = s
+        @type = 'text/csv'
+        @attachment()
+        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', 0, 1000)
+        influencers = dictify(influencers)
+        do ->
+            s.write(['screen_name', 'followers_count'])
+            for screen_name, followers_count of influencers
+                s.write([screen_name, followers_count])
+            s.end()
+        yield return
+
     app.listen(port)
 
 
