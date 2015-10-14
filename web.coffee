@@ -37,9 +37,10 @@ start = ->
         countqueue     = yield redisClient.llen('twitter:countqueue')
         followersqueue = yield redisClient.llen('twitter:followersqueue')
         friendsqueue   = yield redisClient.llen('twitter:friendsqueue')
-        followers      = yield redisClient.scard('twitter:followers')
-        friends        = yield redisClient.scard('twitter:friends')
-        influencers    = yield redisClient.zcard('twitter:influence')
+        followered     = yield redisClient.scard('twitter:followered')
+        friended       = yield redisClient.scard('twitter:friended')
+        counted        = yield redisClient.scard('twitter:counted')
+        influence      = yield redisClient.zcard('twitter:influence')
         lastInfluencer = yield redisClient.get('twitter:lastinfluencer')
         @body = """
         <!DOCTYPE html>
@@ -47,9 +48,9 @@ start = ->
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
         </head><body>
         <h2>progress</h2>
-        followers #{followers}<br/>
-        friends #{friends}<br/>
-        influencers #{influencers} <a href="/influencers.csv?offset=0&count=500">download</a><br/>
+        followers #{followered}<br/>
+        friends #{friended}<br/>
+        influencers #{influence} <a href="/influencers.csv?offset=0&count=5000">download</a><br/>
         <h2>queues</h2>
         count #{countqueue}<br/>
         followers #{followersqueue}<br/>
@@ -70,16 +71,16 @@ start = ->
         @attachment()
         {offset, count} = @query
         offset ?= 0
-        count ?= 500
+        count ?= 5000
         influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', offset, count)
         influencers = dictify(influencers)
-        s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url'])
-        for screen_name, followers_count of influencers
-            influencer = yield redisClient.hget('twitter:influencers', screen_name)
-            {name, description, location, url} = JSON.parse(influencer)
-            s.write([screen_name, followers_count, name, description, location, url])
-        s.end()
-        yield return
+        co ->
+            s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url'])
+            for screen_name, followers_count of influencers
+                influencer = yield redisClient.hget('twitter:influencers', screen_name)
+                {name, description, location, url} = JSON.parse(influencer)
+                s.write([screen_name, followers_count, name, description, location, url])
+            s.end()
 
     app.listen(port)
 
