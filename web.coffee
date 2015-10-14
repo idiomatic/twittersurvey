@@ -29,7 +29,10 @@ start = ->
         influencers    = yield redisClient.zcard('twitter:influence')
         lastInfluencer = yield redisClient.get('twitter:lastinfluencer')
         @body = """
-        <html><body>
+        <!DOCTYPE html>
+        <html><head>
+            <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
+        </head><body>
         <h2>queues</h2>
         count #{countqueue}<br/>
         followers #{followersqueue}<br/>
@@ -38,7 +41,13 @@ start = ->
         followers #{followers}<br/>
         friends #{friends}<br/>
         influencers #{influencers}<br/>
-        <pre>#{util.inspect(lastInfluencer)}</pre>
+        <hr/>
+        <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
+        <script>
+            var lastInfluencer = #{JSON.stringify(JSON.parse(lastInfluencer))};
+            var formatter = new JSONFormatter(lastInfluencer);
+            document.body.appendChild(formatter.render())
+        </script>
         """
     app.listen(port)
 
