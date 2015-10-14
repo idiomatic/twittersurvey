@@ -66,7 +66,10 @@ start = ->
         @body = s
         @type = 'text/csv'
         @attachment()
-        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', 0, 5000)
+        {offset, count} = @query
+        offset ?= 0
+        count ?= 500
+        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', offset, count)
         influencers = dictify(influencers)
         s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url'])
         for screen_name, followers_count of influencers
