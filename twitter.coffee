@@ -132,7 +132,7 @@ start = ->
     credentials = {}
     {TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET} = process.env
     if TWITTER_CONSUMER_KEY
-        credentials[TWITTER_CONSUMER_KEY] = TWITTER_CONSUMER_SECRET]
+        credentials[TWITTER_CONSUMER_KEY] = TWITTER_CONSUMER_SECRET
 
     redisClient = createRedisClient()
     for credential in yield redisClient.lrange('twitter:credentials', 0, -1)
