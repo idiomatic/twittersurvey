@@ -1,6 +1,8 @@
 #!/usr/bin/env coffee
 # copyright 2015, r. brian harrison.  all rights reserved.
 
+# TODO optimize CSV generation
+
 util      = require 'util'
 koa       = require 'koa'
 route     = require 'koa-route'
@@ -47,7 +49,7 @@ start = ->
         <h2>progress</h2>
         followers #{followers}<br/>
         friends #{friends}<br/>
-        influencers #{influencers} <a href="/influencers.csv">download</a><br/>
+        influencers #{influencers} <a href="/influencers.csv?offset=0&count=500">download</a><br/>
         <h2>queues</h2>
         count #{countqueue}<br/>
         followers #{followersqueue}<br/>
