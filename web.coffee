@@ -33,15 +33,15 @@ start = ->
         <html><head>
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
         </head><body>
-        <h2>queues</h2>
-        count #{countqueue}<br/>
-        followers #{followersqueue}<br/>
-        friends #{friendsqueue}<br/>
         <h2>progress</h2>
         followers #{followers}<br/>
         friends #{friends}<br/>
         influencers #{influencers}<br/>
-        <hr/>
+        <h2>queues</h2>
+        count #{countqueue}<br/>
+        followers #{followersqueue}<br/>
+        friends #{friendsqueue}<br/>
+        <h2>latest influencer<h2>
         <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
         <script>
             var lastInfluencer = #{JSON.stringify(JSON.parse(lastInfluencer))};
