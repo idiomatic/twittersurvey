@@ -19,9 +19,11 @@ createRedisClient = ->
 
 
 dictify = (a) ->
+    # [k, v, k2, v2, ... ] -> {k: v, k2: v, ...}
     d = {}
     for v, i in a
-        d[v] = a[i + 1]
+        if i % 2 is 1
+            d[a[i - 1]] = v
     return d
 
 
