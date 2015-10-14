@@ -71,15 +71,19 @@ start = ->
         @attachment()
         {offset, count} = @query
         offset ?= 0
-        count ?= 5000
+        count  ?= 5000
         influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', offset, count)
         influencers = dictify(influencers)
+        s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
+        # HACK proceed in parallel to sending HTTP headers
         co ->
-            s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url'])
+            # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
+            email_re = /\S+@\S+\.\S+/
             for screen_name, followers_count of influencers
                 influencer = yield redisClient.hget('twitter:influencers', screen_name)
                 {name, description, location, url} = JSON.parse(influencer)
-                s.write([screen_name, followers_count, name, description, location, url])
+                email_address = email_re.exec(description)?[0]
+                s.write([screen_name, followers_count, name, description, location, url, email_address])
             s.end()
 
     app.listen(port)

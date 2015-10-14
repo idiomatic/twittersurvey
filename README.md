@@ -1,3 +1,8 @@
+manual invocation:
+
+    env TWITTER_CONSUMER_KEY=... TWITTER_CONSUMER_SECRET=... coffee twitter.coffee
+    coffee web.coffee
+
 
 some useful Redis commands:
 

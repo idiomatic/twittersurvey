@@ -129,25 +129,31 @@ authenticate = (consumer_key, consumer_secret) ->
 
 
 start = ->
-    credentials = []
+    credentials = {}
     {TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET} = process.env
-    if TWITTER_CONSUMER_KEY and TWITTER_CONSUMER_SECRET
-        credentials.push([TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET])
+    if TWITTER_CONSUMER_KEY
+        credentials[TWITTER_CONSUMER_KEY] = TWITTER_CONSUMER_SECRET]
 
     redisClient = createRedisClient()
     for credential in yield redisClient.lrange('twitter:credentials', 0, -1)
         [key, secret] = credential.split(':')
         continue if key is TWITTER_CONSUMER_KEY
-        credentials.push([key, secret])
+        credentials[key] = secret
     redisClient.quit()
 
+    # patient0
     yield seed
 
-    for [key, secret] in credentials
+    credentialCount = 0
+    for key, secret of credentials
         twitter = authenticate(key, secret)
+        # parallel execution
         co -> yield countQueue(twitter)
         co -> yield followersQueue(twitter)
         co -> yield friendsQueue(twitter)
+        ++credentialCount
+
+    console.log "#{credentialCount} Twitter app credentials in use"
 
     # XXX
     #yield untilSignal()
