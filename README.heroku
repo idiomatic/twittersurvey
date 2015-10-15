@@ -5,3 +5,7 @@ git push heroku master
 heroku ps:scale worker=1
 heroku open
 heroku logs --tail
+
+heroku config:set USER_PUSHED_CAP=1000000
+heroku config:set FOLLOWERS_PUSHED_CAP=100000
+heroku config:set FRIENDS_PUSHED_CAP=100000 FRIENDS_QUEUE_CAP=100000

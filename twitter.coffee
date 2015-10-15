@@ -21,13 +21,18 @@ untilSignal = (signal='SIGTERM') ->
         forever = setTimeout(cb, 2147483647)
 
 
+parseOptionalInt = (n) ->
+    n = parseInt(n)
+    n = undefined if isNaN(n)
+    return n
+
+
 createRedisClient = ->
     return coRedis(redis.createClient(process.env.REDIS_URL))
 
 
 class Queue
-    constructor: (@queueName, options={}) ->
-        {@pushedCap, @queueCap} = options
+    constructor: (@queueName, {@pushedCap, @queueCap}={}) ->
         @redis = createRedisClient()
         @blockingRedis = undefined
 
@@ -98,9 +103,18 @@ rateLimiter = (options) ->
 class Surveyer
     constructor: (@twitter=null) ->
         # needs to be considerably bigger than 'ZCARD influence'
-        @userQueue         = new Queue('user', pushedCap:1000000)
-        @followersQueue    = new Queue('follower', pushedCap:100000)
-        @friendsQueue      = new Queue('friend', pushedCap:100000, queueCap:100000)
+        pushedCap  = parseOptionalInt(process.env.USER_PUSHED_CAP)
+        queueCap   = parseOptionalInt(process.env.USER_QUEUE_CAP)
+        @userQueue = new Queue('user', {pushedCap, queueCap})
+
+        pushedCap       = parseOptionalInt(process.env.FOLLOWERS_PUSHED_CAP)
+        queueCap        = parseOptionalInt(process.env.FOLLOWERS_QUEUE_CAP)
+        @followersQueue = new Queue('follower', {pushedCap, queueCap})
+
+        pushedCap     = parseOptionalInt(process.env.FRIENDS_PUSHED_CAP)
+        queueCap      = parseOptionalInt(process.env.FRIENDS_QUEUE_CAP)
+        @friendsQueue = new Queue('friend', {pushedCap, queueCap})
+
         @usersLookupLimit  = rateLimiter() # 180/15min
         @followersIdsLimit = rateLimiter() # 15/15min
         @friendsIdsLimit   = rateLimiter() # 15/15min
