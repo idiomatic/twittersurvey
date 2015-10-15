@@ -31,3 +31,5 @@ some useful Redis commands:
     DEL twitter:friendsqueue
     DEL twitter:followers
     DEL twitter:influence
+
+    CONFIG SET stop-writes-on-bgsave-error no

@@ -97,7 +97,8 @@ rateLimiter = (options) ->
 
 class Surveyer
     constructor: (@twitter=null) ->
-        @userQueue         = new Queue('user', pushedCap:100000)
+        # needs to be considerably bigger than 'ZCARD influence'
+        @userQueue         = new Queue('user', pushedCap:1000000)
         @followersQueue    = new Queue('follower', pushedCap:100000)
         @friendsQueue      = new Queue('friend', pushedCap:100000, queueCap:100000)
         @usersLookupLimit  = rateLimiter() # 180/15min
@@ -162,7 +163,7 @@ class Surveyer
             for follower in ids or []
                 yield @userQueue.push(follower)
                 yield @friendsQueue.push(follower)
-                    
+
 
     friends: =>
         assert @twitter
