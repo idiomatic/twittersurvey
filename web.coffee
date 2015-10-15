@@ -57,11 +57,15 @@ start = ->
             <table>
               <tr>
                 <th></th>
-                <th>unique discovered</th>
                 <th>processed</th>
+                <th>unique discovered</th>
                 <th>
                   queue
                   <div class="explain">Backlog</div>
+                </th>
+                <th>
+                  discarded
+                  <div class="explain">Memory pressure</div>
                 </th>
               </tr>
 
@@ -71,9 +75,10 @@ start = ->
                     Twitter users
                   </div>
                 </th>
-                <td>#{stats.user.pushed}</td>
-                <td>#{stats.user.popped}</td>
-                <td>#{stats.user.queue}</td>
+                <td>#{stats.user.popped or 0}</td>
+                <td>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{stats.user.pushed or 0}</td>
+                <td rowspan=2>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{stats.user.queue or 0}</td>
+                <td>#{stats.user.discarded or 0}</td>
               </tr>
 
               <tr>
@@ -86,9 +91,8 @@ start = ->
                     <a href="/influencers.csv?offset=0&count=5000">first 5000</a>
                   </div>
                 </th>
-                <td>#{stats.influencers}</td>
-                <td>#{stats.influencers}</td>
-                <td>#{stats.user.queue}</td>
+                <td colspan=2>#{stats.influencers}</td>
+                <td>0</td>
               </tr>
 
               <tr>
@@ -98,9 +102,10 @@ start = ->
                     About to (slowly) fetch the first 5000 followers
                   </div>
                 </th>
-                <td>#{stats.followers.pushed}</td>
-                <td>#{stats.followers.popped}</td>
-                <td>#{stats.followers.queue}</td>
+                <td>#{stats.followers.popped or 0}</td>
+                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{stats.followers.pushed or 0}</td>
+                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{stats.followers.queue or 0}</td>
+                <td>#{stats.followers.discarded or 0}</td>
               </tr>
 
               <tr>
@@ -111,9 +116,10 @@ start = ->
                     Occasionally purged without consequence
                   </div>
                 </th>
-                <td>&gt;&nbsp;#{stats.friends.pushed}</td>
-                <td>#{stats.friends.popped}</td>
-                <td>&gt;&nbsp;#{stats.friends.queue}</td>
+                <td>#{stats.friends.popped or 0}</td>
+                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{stats.friends.pushed or 0}</td>
+                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{stats.friends.queue or 0}</td>
+                <td>#{stats.friends.discarded or 0}</td>
               </tr>
             </table>
 

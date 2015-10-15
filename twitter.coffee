@@ -26,12 +26,31 @@ createRedisClient = ->
 
 
 class Queue
-    constructor: (@queueName) ->
+    constructor: (@queueName, options={}) ->
+        {@pushedCap, @queueCap} = options
         @redis = createRedisClient()
         @blockingRedis = undefined
+
     push: (value) ->
-        if yield @redis.sadd("#{@queueName}-pushed", value)
-            yield @redis.rpush("#{@queueName}-queue", value)
+        # encourage shrinkage and queue-exclusion freshness
+        # i.e., remove some random "stale" values if capped
+        # discarded values may be serendipitiously repushed
+        if @pushedCap? and (@pushedCap < yield @redis.scard("#{@queueName}-pushed"))
+            yield @redis.spop("#{@queueName}-pushed")
+            yield @redis.spop("#{@queueName}-pushed")
+            yield @redis.incrby("#{@queueName}-discarded", 2)
+
+        # there's no room in the queue either; do nothing further
+        if @queueCap? and (@queueCap < yield @redis.llen("#{@queueName}-queue"))
+            yield @redis.incr("#{@queueName}-discarded")
+            return
+
+        # do nothing further if this value is currently here
+        return unless yield @redis.sadd("#{@queueName}-pushed", value)
+
+        yield @redis.rpush("#{@queueName}-queue", value)
+
+
     pop: (timeout) ->
         # correct Redis sentinel value screwup:
         #     timeout=null -> blocking
@@ -43,10 +62,12 @@ class Queue
             [_, value] = yield @blockingRedis.blpop("#{@queueName}-queue", timeout ? 0)
         yield @redis.incr("#{@queueName}-popped")
         return value
+
     stats: ->
-        pushed: yield @redis.scard("#{@queueName}-pushed")
-        popped: yield @redis.get("#{@queueName}-popped")
-        queue:  yield @redis.llen("#{@queueName}-queue")
+        pushed:    yield @redis.scard("#{@queueName}-pushed")
+        popped:    yield @redis.get("#{@queueName}-popped")
+        queue:     yield @redis.llen("#{@queueName}-queue")
+        discarded: yield @redis.get("#{@queueName}-discarded")
 
 
 # function decorator to apply x-rate-limit headers
@@ -76,9 +97,9 @@ rateLimiter = (options) ->
 
 class Surveyer
     constructor: (@twitter=null) ->
-        @userQueue         = new Queue('user')
-        @followersQueue    = new Queue('follower')
-        @friendsQueue      = new Queue('friend')
+        @userQueue         = new Queue('user', pushedCap:100000)
+        @followersQueue    = new Queue('follower', pushedCap:100000)
+        @friendsQueue      = new Queue('friend', pushedCap:100000, queueCap:100000)
         @usersLookupLimit  = rateLimiter() # 180/15min
         @followersIdsLimit = rateLimiter() # 15/15min
         @friendsIdsLimit   = rateLimiter() # 15/15min
@@ -141,6 +162,7 @@ class Surveyer
             for follower in ids or []
                 yield @userQueue.push(follower)
                 yield @friendsQueue.push(follower)
+                    
 
     friends: =>
         assert @twitter
@@ -178,9 +200,11 @@ start = ->
 
         # parallel execution
         # TODO error handling
-        co surveyer.users
-        co surveyer.followers
-        co surveyer.friends
+        chainError = (err) -> setImmediate -> throw err
+        #chainError = (err) -> console.error err.stack
+        co(surveyer.users).catch chainError
+        co(surveyer.followers).catch chainError
+        co(surveyer.friends).catch chainError
         ++credentialCount
 
     console.log "#{credentialCount} Twitter app credential(s) in use"
