@@ -81,11 +81,12 @@ start = ->
                   <div class="explain">
                     Twitter users with 5000 followers or more
                   </div>
+                  <div>
+                    <a href="/influencers.csv">download all</a> or
+                    <a href="/influencers.csv?offset=0&count=5000">first 5000</a>
+                  </div>
                 </th>
-                <td>
-                  <a href="/influencers.csv?offset=0&count=5000" style="float:left;">download</a>
-                  #{stats.influencers}<br/>
-                </td>
+                <td>#{stats.influencers}</td>
                 <td>#{stats.influencers}</td>
                 <td>#{stats.user.queue}</td>
               </tr>
