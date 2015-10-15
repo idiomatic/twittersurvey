@@ -113,7 +113,7 @@ start = ->
                 </th>
                 <td>&gt;&nbsp;#{stats.friends.pushed}</td>
                 <td>#{stats.friends.popped}</td>
-                <td>#{stats.friends.queue}</td>
+                <td>&gt;&nbsp;#{stats.friends.queue}</td>
               </tr>
             </table>
 
@@ -148,6 +148,7 @@ start = ->
             for screen_name, followers_count of influencers
                 influencer = yield redisClient.hget('influencers', screen_name)
                 {name, description, location, url} = JSON.parse(influencer)
+                description = description.replace(/\r/g, '\n')
                 email_address = email_re.exec(description)?[0]
                 s.write([screen_name, followers_count, name, description, location, url, email_address])
             s.end()
