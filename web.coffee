@@ -44,24 +44,70 @@ start = ->
         lastInfluencer = yield redisClient.get('twitter:lastinfluencer')
         @body = """
         <!DOCTYPE html>
-        <html><head>
+        <html>
+          <head>
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
-        </head><body>
-        <h2>progress</h2>
-        followers #{followered}<br/>
-        friends #{friended}<br/>
-        influencers #{influence} <a href="/influencers.csv?offset=0&count=5000">download</a><br/>
-        <h2>queues</h2>
-        count #{countqueue}<br/>
-        followers #{followersqueue}<br/>
-        friends #{friendsqueue}<br/>
-        <h2>latest influencer<h2>
-        <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
-        <script>
-            var lastInfluencer = #{JSON.stringify(JSON.parse(lastInfluencer))};
-            var formatter = new JSONFormatter(lastInfluencer);
-            document.body.appendChild(formatter.render())
-        </script>
+            <style>
+              body {font-family: Sans-Serif;}
+              th, td {text-align: right; padding: 0.5em;}
+              th:first-child {text-align: left;}
+              table {border-collapse: collapse;}
+              table, td, th {border: 1px solid black;}
+              .explain {font-size: x-small; color:#ccc;}
+            </style>
+          </head>
+          <body>
+            <h2>Statistics</h2>
+            <table>
+              <tr>
+                <th></th>
+                <th>unique discovered</th>
+                <th>queue</th>
+              </tr>
+              <tr>
+                <th>Influencers
+                  <div class="explain">
+                    Twitter users with 5000 followers or more
+                  </div>
+                </th>
+                <td>
+                  #{influence}<br/>
+                  <a href="/influencers.csv?offset=0&count=5000">download</a>
+                </td>
+                <td>#{countqueue}</td>
+              </tr>
+              <tr>
+                <th>Their Followers
+                  <div class="explain">
+                    Influencers with followers<br/>
+                    Fetches the first 5000 followers (slow)<br/>
+                    Users are eventually follower-count-discriminated
+                  </div>
+                </th>
+                <td>#{followered}</td>
+                <td>#{followersqueue}</td>
+              </tr>
+              <tr>
+                <th>Their Friends
+                  <div class="explain">
+                    Users that follow others<br/>
+                    Fetches the first 5000 users they follow (slow)<br/>
+                    Occasionally purged without consequence
+                  </div>
+                </th>
+                <td>&gt;&nbsp;#{friended}</td>
+                <td>#{friendsqueue}</td>
+              </tr>
+            </table>
+            <h2>Latest Influencer</h2>
+            <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
+            <script>
+              var lastInfluencer = #{JSON.stringify(JSON.parse(lastInfluencer))};
+              var formatter = new JSONFormatter(lastInfluencer);
+              document.body.appendChild(formatter.render())
+            </script>
+          </body>
+        </html>
         """
 
     app.use route.get '/influencers.csv', (next) ->
