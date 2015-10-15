@@ -58,16 +58,17 @@ rateLimiter = (options) ->
     f = (fn) ->
         delay = waitUntil - now()
         if delay > 0
-            console.log "limiter delaying #{delay}"
             yield (cb) -> setTimeout cb, delay
-        [data, response] = yield fn
+        # HACK eat errors
+        [data, response] = yield (cb) ->
+            fn (err, args...) ->
+                cb(null, args...)
         waitUntil = voluntaryNaptime + now()
         if response?.headers['x-rate-limit-remaining'] is '0'
-            waitUntil = Math.min(waitUntil, 1000 * parseInt(response.headers['x-rate-limit-reset']))
+            waitUntil = Math.max(waitUntil, 1000 * parseInt(response.headers['x-rate-limit-reset']))
         if response?.statusCode is 429
-            waitUntil = Math.min(waitUntil, disciplinaryNaptime + now())
+            waitUntil = Math.max(waitUntil, disciplinaryNaptime + now())
             # tail recurse
-            console.log "limiter repeating"
             yield f(fn)
         return [data, response]
     return f
