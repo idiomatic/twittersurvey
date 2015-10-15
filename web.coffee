@@ -30,6 +30,17 @@ dictify = (a) ->
     return d
 
 
+commatize = (n) ->
+    fractionIndex = (n or 0).toString().lastIndexOf('.')
+    fraction = ''
+    if fractionIndex > -1
+        fraction = n.toString().substr(fractionIndex)
+    if n >= 1000
+        commatize(Math.floor(n / 1000)) + ',' + Math.floor(n).toString().substr(-3) + fraction
+    else
+        n
+
+
 start = ->
     surveyer = new survey.Surveyer()
 
@@ -75,20 +86,20 @@ start = ->
                     Twitter users
                   </div>
                 </th>
-                <td>#{stats.user.popped or 0}</td>
-                <td>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{stats.user.pushed or 0}</td>
-                <td rowspan=2>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{stats.user.queue or 0}</td>
-                <td>#{stats.user.discarded or 0}</td>
+                <td>#{commatize stats.user.popped or 0}</td>
+                <td>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{commatize stats.user.pushed or 0}</td>
+                <td rowspan=2>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{commatize stats.user.queue or 0}</td>
+                <td>#{commatize stats.user.discarded or 0}</td>
               </tr>
 
               <tr>
                 <th>Influencers
                   <div class="explain">
-                    Twitter users with 5000 followers or more
+                    Twitter users with 5,000 followers or more
                   </div>
                   <div>
                     <a href="/influencers.csv">download all</a> or
-                    <a href="/influencers.csv?offset=0&count=5000">first 5000</a>
+                    <a href="/influencers.csv?offset=0&count=5000">top 5,000</a>
                   </div>
                 </th>
                 <td colspan=2>#{stats.influencers}</td>
@@ -99,27 +110,27 @@ start = ->
                 <th>Influencer Followers
                   <div class="explain">
                     Influencers with followers<br/>
-                    About to (slowly) fetch the first 5000 followers
+                    About to (slowly) fetch the first 5,000 followers
                   </div>
                 </th>
-                <td>#{stats.followers.popped or 0}</td>
-                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{stats.followers.pushed or 0}</td>
-                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{stats.followers.queue or 0}</td>
-                <td>#{stats.followers.discarded or 0}</td>
+                <td>#{commatize stats.followers.popped or 0}</td>
+                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{commatize stats.followers.pushed or 0}</td>
+                <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{commatize stats.followers.queue or 0}</td>
+                <td>#{commatize stats.followers.discarded or 0}</td>
               </tr>
 
               <tr>
                 <th>Influencer Follower Friends
                   <div class="explain">
                     Users that follow others<br/>
-                    About to (slowly) fetch the first 5000 users they follow<br/>
+                    About to (slowly) fetch the first 5,000 users they follow<br/>
                     Occasionally purged without consequence
                   </div>
                 </th>
-                <td>#{stats.friends.popped or 0}</td>
-                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{stats.friends.pushed or 0}</td>
-                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{stats.friends.queue or 0}</td>
-                <td>#{stats.friends.discarded or 0}</td>
+                <td>#{commatize stats.friends.popped or 0}</td>
+                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{commatize stats.friends.pushed or 0}</td>
+                <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{commatize stats.friends.queue or 0}</td>
+                <td>#{commatize stats.friends.discarded or 0}</td>
               </tr>
             </table>
 
