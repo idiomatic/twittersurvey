@@ -102,7 +102,7 @@ start = ->
                     <a href="/influencers.csv?offset=0&count=5000">top 5,000</a>
                   </div>
                 </th>
-                <td colspan=2>#{stats.influencers}</td>
+                <td colspan=2>#{commatize stats.influencers}</td>
                 <td>0</td>
               </tr>
 
