@@ -136,7 +136,7 @@ start = ->
         @attachment()
         {offset, count} = @query
         offset ?= 0
-        count  ?= 5000
+        count  ?= -1
         # TODO redis via Surveyer
         influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
         influencers = dictify(influencers)
