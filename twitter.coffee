@@ -1,7 +1,5 @@
 #!/usr/bin/coffee
 # copyright 2015, r. brian harrison.  all rights reserved.
-#
-# TODO save limits into redis
 
 assert  = require 'assert'
 util    = require 'util'
@@ -27,101 +25,131 @@ createRedisClient = ->
     return coRedis(redis.createClient(process.env.REDIS_URL))
 
 
-countQueue = (twitter) ->
-    limit = limits(quarterly:180).co()
-    redisClient = createRedisClient()
-
-    loop
-        # get up to 100 of the next uncounted users whom which we will discriminate
-
-        # get the user first, blockingly
-        [_, blockingUserId] = yield redisClient.blpop('twitter:countqueue', 0)
-        if blockingUserId
-            followedIds = [blockingUserId]
-
-        # HACK since blpop(..., timeout) does not work
-        yield (cb) -> setTimeout cb, 100
-
-        # add up to 99 more
-        for i in [1...100]
-            #[_, anotherUserId] = yield redisClient.blpop('twitter:countqueue', '1')
-            anotherUserId = yield redisClient.lpop('twitter:countqueue')
-            break unless anotherUserId
-            followedIds.push(anotherUserId)
-
-        # bulk lookup (up to 180/15min)
-        # XXX make post due to HTTP url length limit?
-        if followedIds.length > 0
-            yield limit
-            [users] = yield (cb) ->
-                twitter.get('users/lookup', user_id:followedIds.join(','), cb)
-
-        # discriminate
-        lastInfluencer = null
-        for user in users or []
-            {followers_count, screen_name, id} = user
-            if followers_count >= influential
-                #console.log "#{screen_name} (#{id}) has #{followers_count}"
-                yield redisClient.zadd('twitter:influence', followers_count, screen_name)
-                yield redisClient.hset('twitter:influencers', screen_name, JSON.stringify(user))
-                # virally check out influcencers' followers
-                if yield redisClient.sadd('twitter:followered', id)
-                    yield redisClient.rpush('twitter:followersqueue', id)
-                lastInfluencer = user
-
-        if lastInfluencer
-            yield redisClient.set('twitter:lastinfluencer', JSON.stringify(lastInfluencer))
+class Queue
+    constructor: (@queueName) ->
+        @redis = createRedisClient()
+        @blockingRedis = undefined
+    push: (value) ->
+        if yield @redis.sadd("#{@queueName}-pushed", value)
+            yield @redis.rpush("#{@queueName}-queue", value)
+    pop: (timeout) ->
+        # correct Redis sentinel value screwup:
+        #     timeout=null -> blocking
+        #     timeout=0 -> instant return
+        if timeout == 0
+            value = yield @redis.lpop("#{@queueName}-queue")
+        else
+            @blockingRedis ?= createRedisClient()
+            [_, value] = yield @blockingRedis.blpop("#{@queueName}-queue", timeout ? 0)
+        yield @redis.incr("#{@queueName}-popped")
+        return value
+    stats: ->
+        pushed: yield @redis.scard("#{@queueName}-pushed")
+        popped: yield @redis.get("#{@queueName}-popped")
+        queue:  yield @redis.llen("#{@queueName}-queue")
 
 
-followersQueue = (twitter) ->
-    limit = limits(quarterly:15).co()
-    redisClient = createRedisClient()
-
-    loop
-        # get some of a user's followers and queue new ones
-        # TODO downstream queue pushback
-        [_, user_id] = yield redisClient.blpop('twitter:followersqueue', 0)
-        if user_id?
-            yield limit
-            [{ids}] = yield (cb) ->
-                twitter.get('followers/ids', {user_id, count:5000}, cb)
-
-        for follower in ids or []
-            if yield redisClient.sadd('twitter:friended', follower)
-                yield redisClient.rpush('twitter:friendsqueue', follower)
-            if yield redisClient.sadd('twitter:counted', follower)
-                yield redisClient.rpush('twitter:countqueue', follower)
-
-
-friendsQueue = (twitter) ->
-    limit = limits(quarterly:15).co()
-    redisClient = createRedisClient()
-
-    loop
-        # get some of a user's friends and queue new ones
-        # TODO pushback
-        [_, user_id] = yield redisClient.blpop('twitter:friendsqueue', 0)
-        if user_id?
-            yield limit
-            [{ids}] = yield (cb) ->
-                twitter.get('friends/ids', {user_id, count:5000}, cb)
-
-        for friend in ids or []
-            if yield redisClient.sadd('twitter:counted', friend)
-                # HACK: prioritize by pushing in front
-                yield redisClient.lpush('twitter:countqueue', friend)
+# function decorator to apply x-rate-limit headers
+rateLimiter = (options) ->
+    {disciplinaryNaptime=60000, voluntaryNaptime=0} = options or {}
+    waitUntil = 0
+    now = ->
+        return new Date().getTime()
+    f = (fn) ->
+        delay = waitUntil - now()
+        if delay > 0
+            console.log "limiter delaying #{delay}"
+            yield (cb) -> setTimeout cb, delay
+        [data, response] = yield fn
+        waitUntil = voluntaryNaptime + now()
+        if response?.headers['x-rate-limit-remaining'] is '0'
+            waitUntil = Math.min(waitUntil, 1000 * parseInt(response.headers['x-rate-limit-reset']))
+        if response?.statusCode is 429
+            waitUntil = Math.min(waitUntil, disciplinaryNaptime + now())
+            # tail recurse
+            console.log "limiter repeating"
+            yield f(fn)
+        return [data, response]
+    return f
 
 
-seed = ->
-    redisClient = createRedisClient()
+class Surveyer
+    constructor: (@twitter=null) ->
+        @userQueue         = new Queue('user')
+        @followersQueue    = new Queue('follower')
+        @friendsQueue      = new Queue('friend')
+        @usersLookupLimit  = rateLimiter() # 180/15min
+        @followersIdsLimit = rateLimiter() # 15/15min
+        @friendsIdsLimit   = rateLimiter() # 15/15min
+        @redis             = createRedisClient()
 
-    user_id = 237845487
-    if yield redisClient.sadd('twitter:counted', user_id)
-        # TODO also skip if it's already queued?
-        yield redisClient.rpush('twitter:countqueue', user_id)
-        console.log "seeded #{user_id}"
+    seed: =>
+        yield @userQueue.push(237845487)
 
-    redisClient.quit()
+
+    stats: ->
+        user:           yield @userQueue.stats()
+        followers:      yield @followersQueue.stats()
+        friends:        yield @friendsQueue.stats()
+        influencers:    yield @redis.zcard('influence')
+        lastInfluencer: yield =>
+            influencer = yield @redis.get('lastinfluencer')
+            return JSON.parse(influencer or 'null')
+
+
+    users: =>
+        assert @twitter
+        loop
+            followedIds = [yield @userQueue.pop()]
+
+            # HACK since blpop(..., timeout) does not work; 100ms queue top-off
+            yield (cb) -> setTimeout cb, 100
+
+            # add up to 99 more possible influencers
+            for i in [1...100]
+                id = yield @userQueue.pop(0)
+                break unless id
+                followedIds.push(id)
+
+            # bulk user retrieval
+            [users] = yield @usersLookupLimit (cb) =>
+                @twitter.get('users/lookup', user_id:followedIds.join(','), cb)
+
+            # discriminate
+            for user in users or []
+                {followers_count, screen_name, id} = user
+                if followers_count >= influential
+                    yield @redis.zadd('influence', followers_count, screen_name)
+                    yield @redis.hset('influencers', screen_name, JSON.stringify(user))
+
+                    # virally check out influcencers' followers
+                    yield @followersQueue.push(id)
+                    lastInfluencer = user
+
+            # HACK
+            if lastInfluencer
+                yield @redis.set('lastinfluencer', JSON.stringify(lastInfluencer))
+
+    followers: =>
+        assert @twitter
+        loop
+            id = yield @followersQueue.pop()
+            [{ids}] = yield @followersIdsLimit (cb) =>
+                @twitter.get('followers/ids', {user_id:id, count:5000}, cb)
+
+            for follower in ids or []
+                yield @userQueue.push(follower)
+                yield @friendsQueue.push(follower)
+
+    friends: =>
+        assert @twitter
+        loop
+            id = yield @friendsQueue.pop()
+            [{ids}] = yield @friendsIdsLimit (cb) =>
+                @twitter.get('friends/ids', {user_id:id, count:5000}, cb)
+
+            for friend in ids or []
+                yield @userQueue.push(friend)
 
 
 authenticate = (consumer_key, consumer_secret) ->
@@ -135,25 +163,26 @@ start = ->
         credentials[TWITTER_CONSUMER_KEY] = TWITTER_CONSUMER_SECRET
 
     redisClient = createRedisClient()
-    for credential in yield redisClient.lrange('twitter:credentials', 0, -1)
+    for credential in yield redisClient.lrange('credentials', 0, -1)
         [key, secret] = credential.split(':')
         continue if key is TWITTER_CONSUMER_KEY
         credentials[key] = secret
     redisClient.quit()
 
-    # patient0
-    yield seed
-
     credentialCount = 0
     for key, secret of credentials
         twitter = authenticate(key, secret)
+        surveyer = new Surveyer(twitter)
+        yield surveyer.seed()
+
         # parallel execution
-        co -> yield countQueue(twitter)
-        co -> yield followersQueue(twitter)
-        co -> yield friendsQueue(twitter)
+        # TODO error handling
+        co surveyer.users
+        co surveyer.followers
+        co surveyer.friends
         ++credentialCount
 
-    console.log "#{credentialCount} Twitter app credentials in use"
+    console.log "#{credentialCount} Twitter app credential(s) in use"
 
     # XXX
     #yield untilSignal()
@@ -164,4 +193,4 @@ if require.main is module
         console.error err.stack
 
 
-module.exports = {seed, authenticate, start, countQueue, followersQueue, friendsQueue}
+module.exports = {start, createRedisClient, Queue, Surveyer}

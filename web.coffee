@@ -11,6 +11,7 @@ co        = require 'co'
 redis     = require 'redis'
 coRedis   = require 'co-redis'
 csv       = require 'fast-csv'
+survey    = require './twitter'
 
 
 port = process.env.PORT ? 3002
@@ -30,18 +31,12 @@ dictify = (a) ->
 
 
 start = ->
-    redisClient = createRedisClient()
+    surveyer = new survey.Surveyer()
 
     app = koa()
     app.use route.get '/', (next) ->
-        countqueue     = yield redisClient.llen('twitter:countqueue')
-        followersqueue = yield redisClient.llen('twitter:followersqueue')
-        friendsqueue   = yield redisClient.llen('twitter:friendsqueue')
-        followered     = yield redisClient.scard('twitter:followered')
-        friended       = yield redisClient.scard('twitter:friended')
-        counted        = yield redisClient.scard('twitter:counted')
-        influence      = yield redisClient.zcard('twitter:influence')
-        lastInfluencer = yield redisClient.get('twitter:lastinfluencer')
+        stats = yield surveyer.stats()
+        
         @body = """
         <!DOCTYPE html>
         <html>
@@ -58,12 +53,29 @@ start = ->
           </head>
           <body>
             <h2>Statistics</h2>
+
             <table>
               <tr>
                 <th></th>
                 <th>unique discovered</th>
-                <th>queue</th>
+                <th>processed</th>
+                <th>
+                  queue
+                  <div class="explain">Backlog</div>
+                </th>
               </tr>
+
+              <tr>
+                <th>Users
+                  <div class="explain">
+                    Twitter users
+                  </div>
+                </th>
+                <td>#{stats.user.pushed}</td>
+                <td>#{stats.user.popped}</td>
+                <td>#{stats.user.queue}</td>
+              </tr>
+
               <tr>
                 <th>Influencers
                   <div class="explain">
@@ -71,38 +83,43 @@ start = ->
                   </div>
                 </th>
                 <td>
-                  #{influence}<br/>
-                  <a href="/influencers.csv?offset=0&count=5000">download</a>
+                  <a href="/influencers.csv?offset=0&count=5000" style="float:left;">download</a>
+                  #{stats.influencers}<br/>
                 </td>
-                <td>#{countqueue}</td>
+                <td>#{stats.influencers}</td>
+                <td>#{stats.user.queue}</td>
               </tr>
+
               <tr>
-                <th>Their Followers
+                <th>Influencer Followers
                   <div class="explain">
                     Influencers with followers<br/>
-                    Fetches the first 5000 followers (slow)<br/>
-                    Users are eventually follower-count-discriminated
+                    About to (slowly) fetch the first 5000 followers
                   </div>
                 </th>
-                <td>#{followered}</td>
-                <td>#{followersqueue}</td>
+                <td>#{stats.followers.pushed}</td>
+                <td>#{stats.followers.popped}</td>
+                <td>#{stats.followers.queue}</td>
               </tr>
+
               <tr>
-                <th>Their Friends
+                <th>Influencer Follower Friends
                   <div class="explain">
                     Users that follow others<br/>
-                    Fetches the first 5000 users they follow (slow)<br/>
+                    About to (slowly) fetch the first 5000 users they follow<br/>
                     Occasionally purged without consequence
                   </div>
                 </th>
-                <td>&gt;&nbsp;#{friended}</td>
-                <td>#{friendsqueue}</td>
+                <td>&gt;&nbsp;#{stats.friends.pushed}</td>
+                <td>#{stats.friends.popped}</td>
+                <td>#{stats.friends.queue}</td>
               </tr>
             </table>
+
             <h2>Latest Influencer</h2>
             <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
             <script>
-              var lastInfluencer = #{JSON.stringify(JSON.parse(lastInfluencer))};
+              var lastInfluencer = #{JSON.stringify(stats.lastInfluencer)};
               var formatter = new JSONFormatter(lastInfluencer);
               document.body.appendChild(formatter.render())
             </script>
@@ -111,6 +128,7 @@ start = ->
         """
 
     app.use route.get '/influencers.csv', (next) ->
+        redisClient = createRedisClient()
         s = csv.createWriteStream()
         @body = s
         @type = 'text/csv'
@@ -118,7 +136,8 @@ start = ->
         {offset, count} = @query
         offset ?= 0
         count  ?= 5000
-        influencers = yield redisClient.zrevrangebyscore('twitter:influence', '+inf', 5000, 'withscores', 'limit', offset, count)
+        # TODO redis via Surveyer
+        influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
         influencers = dictify(influencers)
         s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
         # HACK proceed in parallel to sending HTTP headers
@@ -126,11 +145,12 @@ start = ->
             # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
             email_re = /\S+@\S+\.\S+/
             for screen_name, followers_count of influencers
-                influencer = yield redisClient.hget('twitter:influencers', screen_name)
+                influencer = yield redisClient.hget('influencers', screen_name)
                 {name, description, location, url} = JSON.parse(influencer)
                 email_address = email_re.exec(description)?[0]
                 s.write([screen_name, followers_count, name, description, location, url, email_address])
             s.end()
+            redisClient.quit()
 
     app.listen(port)
 
