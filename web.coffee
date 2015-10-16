@@ -47,7 +47,7 @@ start = ->
     app = koa()
     app.use route.get '/', (next) ->
         stats = yield surveyer.stats()
-        
+
         @body = """
         <!DOCTYPE html>
         <html>
@@ -162,20 +162,30 @@ start = ->
         co ->
             # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
             email_re = /\S+@\S+\.\S+/
-            for screen_name, followers_count of influencers
-                influencer = yield redisClient.hget('influencers', screen_name)
-                {name, description, location, url} = JSON.parse(influencer)
-                description = description.replace(/\r/g, '\n')
-                email_address = email_re.exec(description)?[0]
-                s.write([screen_name, followers_count, name, description, location, url, email_address])
+            # HACK fetch everything and filter here
+            cursor = '0'
+            loop
+                [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 1000)
+                for screen_name, influencer of dictify(influencersChunk)
+                    {name, followers_count, description, location, url} = JSON.parse(influencer)
+                    continue unless influencers[screen_name]
+                    description = description.replace(/\r/g, '\n')
+                    email_address = email_re.exec(description)?[0]
+                    s.write([screen_name, followers_count, name, description, location, url, email_address])
+                break if cursor is '0'
+                
             s.end()
             redisClient.quit()
+        .catch (err) ->
+            # TODO propagate
+            console.error err.stack
 
     app.listen(port)
 
 
 if require.main is module
-    co(start)
+    co(start).catch (err) ->
+        console.error err.stack
 
 
 module.exports = {start}
