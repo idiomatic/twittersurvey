@@ -3,6 +3,7 @@
 
 # TODO optimize CSV generation
 
+os        = require 'os'
 util      = require 'util'
 koa       = require 'koa'
 route     = require 'koa-route'
@@ -123,8 +124,7 @@ start = ->
                 <th>Influencer Follower Friends
                   <div class="explain">
                     Users that follow others<br/>
-                    About to (slowly) fetch the first 5,000 users they follow<br/>
-                    Occasionally purged without consequence
+                    About to (slowly) fetch the first 5,000 users they follow
                   </div>
                 </th>
                 <td>#{commatize stats.friends.popped or 0}</td>
@@ -179,6 +179,12 @@ start = ->
         .catch (err) ->
             # TODO propagate
             console.error err.stack
+
+    app.use route.get '/memory', (next) ->
+        @body = process.memoryUsage()
+
+    app.use route.get '/loadavg', (next) ->
+        @body = os.loadavg()
 
     app.listen(port)
 

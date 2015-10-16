@@ -102,6 +102,7 @@ rateLimiter = (options) ->
 
 class Surveyer
     constructor: (@twitter=null) ->
+        # TODO make {options} not process.env
         # needs to be considerably bigger than 'ZCARD influence'
         pushedCap  = parseOptionalInt(process.env.USER_PUSHED_CAP)
         queueCap   = parseOptionalInt(process.env.USER_QUEUE_CAP)
@@ -123,7 +124,6 @@ class Surveyer
     seed: =>
         yield @userQueue.push(237845487)
 
-
     stats: ->
         user:           yield @userQueue.stats()
         followers:      yield @followersQueue.stats()
@@ -132,7 +132,6 @@ class Surveyer
         lastInfluencer: yield =>
             influencer = yield @redis.get('lastinfluencer')
             return JSON.parse(influencer or 'null')
-
 
     users: =>
         assert @twitter
@@ -178,7 +177,6 @@ class Surveyer
                 yield @userQueue.push(follower)
                 yield @friendsQueue.push(follower)
 
-
     friends: =>
         assert @twitter
         loop
@@ -214,7 +212,7 @@ start = ->
         yield surveyer.seed()
 
         # parallel execution
-        # TODO error handling
+        # TODO error propagation
         chainError = (err) -> setImmediate -> throw err
         #chainError = (err) -> console.error err.stack
         co(surveyer.users).catch chainError
