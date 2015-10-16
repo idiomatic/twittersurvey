@@ -182,9 +182,11 @@ start = ->
 
     app.use route.get '/memory', (next) ->
         @body = process.memoryUsage()
+        yield return
 
     app.use route.get '/loadavg', (next) ->
         @body = os.loadavg()
+        yield return
 
     app.listen(port)
 
