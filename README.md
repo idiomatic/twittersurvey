@@ -1,35 +1,50 @@
-manual invocation:
+## Manual Invocation
 
     env TWITTER_CONSUMER_KEY=... TWITTER_CONSUMER_SECRET=... coffee twitter.coffee
     coffee web.coffee
 
 
-some useful Redis commands:
+## Useful Redis Commands
 
-    LLEN "twitter:countqueue"
-    LRANGE "twitter:countqueue" 0 9
+    SCARD user-pushed
+    SRANDMEMBER user-pushed
 
-    LLEN "twitter:followersqueue"
-    LRANGE "twitter:followersqueue" 0 9
+    LLEN user-queue
+    LRANGE user-queue 0 9
 
-    LLEN "twitter:friendsqueue"
-    LRANGE "twitter:friendsqueue" 0 9
+    GET user-popped
+    GET user-discarded
 
-    SCARD "twitter:followers"
-    SMEMBERS "twitter:followers"
+    ZCARD influence
+    ZRANGE influence 0 9 WITHSCORES
+    ZRANGEBYSCORE influence (20000 +inf
 
-    SCARD "twitter:friends"
-    SMEMBERS "twitter:friends"
+    HGETALL influencers
 
-    ZCARD "twitter:influence"
-    ZRANGE "twitter:influence" 0 9 WITHSCORES
-    ZRANGEBYSCORE "twitter:influence" (20000 +inf
+    LLEN follower-queue
+    LRANGE follower-queue 0 9
 
-    KEYS twitter:*
-    DEL twitter:countqueue
-    DEL twitter:followersqueue
-    DEL twitter:friendsqueue
-    DEL twitter:followers
-    DEL twitter:influence
+    SCARD followers-pushed
+    SMEMBERS followers-pushed
+
+    GET follower-popped
+    GET follower-discarded
+
+    LLEN friend-queue
+    LRANGE friend-queue 0 9
+
+    SCARD friend-pushed
+    SMEMBERS friend-pushed
+
+    GET friend-popped
+    GET friend-discarded
+
+    KEYS *
+    DEL user-queue user-pushed user-popped user-discarded
+    DEL follower-queue follower-pushed follower-popped follower-discarded
+    DEL friend-queue friend-pushed friend-popped friend-discarded
+    DEL influence influencers lastinfluencer
 
     CONFIG SET stop-writes-on-bgsave-error no
+
+    LPUSH credentials key:secret

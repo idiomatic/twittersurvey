@@ -156,7 +156,13 @@ class Surveyer
                 {followers_count, screen_name, id} = user
                 if followers_count >= influential
                     yield @redis.zadd('influence', followers_count, screen_name)
-                    yield @redis.hset('influencers', screen_name, JSON.stringify(user))
+                    userBrief =
+                        name:            user.name
+                        followers_count: user.followers_count
+                        description:     user.description
+                        location:        user.location
+                        url:             user.url
+                    yield @redis.hset('influencers', screen_name, JSON.stringify(userBrief))
 
                     # virally check out influcencers' followers
                     yield @followersQueue.push(id)

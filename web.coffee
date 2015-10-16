@@ -53,6 +53,7 @@ start = ->
         <!DOCTYPE html>
         <html>
           <head>
+            <title>Twitter Influencer Survey</title>
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
             <style>
               body {font-family: Sans-Serif;}
@@ -100,7 +101,7 @@ start = ->
                   </div>
                   <div>
                     <a href="/influencers.csv">download all</a> or
-                    <a href="/influencers.csv?offset=0&count=5000">top 5,000</a>
+                    <a href="/influencers.csv?offset=0&count=5000">top #{commatize Math.min(5000, stats.influencers)}</a>
                   </div>
                 </th>
                 <td colspan=2>#{commatize stats.influencers}</td>
@@ -135,6 +136,9 @@ start = ->
             </table>
 
             <h2>Latest Influencer</h2>
+            <p>
+              <a href="https://twitter.com/#{stats.lastInfluencer.screen_name}">#{stats.lastInfluencer.name}</a>
+            </p>
             <script src="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/bundle.js"></script>
             <script>
               var lastInfluencer = #{JSON.stringify(stats.lastInfluencer)};
@@ -159,7 +163,7 @@ start = ->
         influencers = dictify(influencers)
         s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
         # HACK proceed in parallel to sending HTTP headers
-        co ->
+        co (cb) ->
             # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
             email_re = /\S+@\S+\.\S+/
             # HACK fetch everything and filter here
@@ -176,9 +180,31 @@ start = ->
                 
             s.end()
             redisClient.quit()
+            cb?()
         .catch (err) ->
             # TODO propagate
             console.error err.stack
+
+    # remove unnecessary profile attributes
+    app.use route.get '/streamline', (next) ->
+        @body = "started\n"
+        co (cb) ->
+            redisClient = createRedisClient()
+            cursor = '0'
+            loop
+                [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 1000)
+                for screen_name, influencer of dictify(influencersChunk)
+                    {name, followers_count, description, location, url, id_str} = JSON.parse(influencer)
+                    continue unless id_str?
+                    influencer = JSON.stringify {name, followers_count, description, location, url}
+                    yield redisClient.hset('influencers', screen_name, influencer)
+                break if cursor is '0'
+            redisClient.quit()
+            console.log 'influencers streamlined'
+            cb?()
+        .catch (err) ->
+            console.error err.stack
+        yield return
 
     app.use route.get '/memory', (next) ->
         @body = process.memoryUsage()

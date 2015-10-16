@@ -1,0 +1,37 @@
+## redis
+
+### Instance Parameters
+
+### Security Group
+
+### Swap
+
+    fallocate -l 4G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo /swapfile none swap sw 0 0 >> /etc/fstab
+    sysctl vm.swappiness=10
+
+### Packages
+
+    apt install -y redis-server
+    vi /etc/redis/redis.conf
+    # remove bind
+    # requirepass
+    # maxmemory
+    service redis-server restart
+
+### Memory Tools
+
+    apt install -y python-pip
+    pip install rdbtools
+    rdb -c memory /var/lib/redis/dump.rdb
+
+### Slaving for Data Migration
+
+   vi /etc/redis/redis.conf
+   # masterauth
+   slaveof remote host port
+   # wait a bit
+   slaveof no one
