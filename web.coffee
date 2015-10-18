@@ -149,6 +149,9 @@ start = ->
         </html>
         """
 
+    app.use route.get '/stats', (next) ->
+        @body = yield surveyer.stats()
+
     app.use route.get '/influencers.csv', (next) ->
         redisClient = createRedisClient()
         s = csv.createWriteStream()
@@ -156,11 +159,14 @@ start = ->
         @type = 'text/csv'
         @attachment()
         {offset, count} = @query
-        offset ?= 0
-        count  ?= -1
-        # TODO redis via Surveyer
-        influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
-        influencers = dictify(influencers)
+        influencers = null
+        if offset? or count?
+            # lazily avoid this ZSET if downloading all
+            offset ?= 0
+            count  ?= -1
+            # TODO redis via Surveyer
+            influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
+            influencers = dictify(influencers)
         s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
         # HACK proceed in parallel to sending HTTP headers
         co (cb) ->
@@ -172,7 +178,7 @@ start = ->
                 [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 1000)
                 for screen_name, influencer of dictify(influencersChunk)
                     {name, followers_count, description, location, url} = JSON.parse(influencer)
-                    continue unless influencers[screen_name]
+                    continue if influencers? and not influencers[screen_name]
                     description = description.replace(/\r/g, '\n')
                     email_address = email_re.exec(description)?[0]
                     s.write([screen_name, followers_count, name, description, location, url, email_address])
@@ -184,27 +190,6 @@ start = ->
         .catch (err) ->
             # TODO propagate
             console.error err.stack
-
-    # remove unnecessary profile attributes
-    app.use route.get '/streamline', (next) ->
-        @body = "started\n"
-        co (cb) ->
-            redisClient = createRedisClient()
-            cursor = '0'
-            loop
-                [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 1000)
-                for screen_name, influencer of dictify(influencersChunk)
-                    {name, followers_count, description, location, url, id_str} = JSON.parse(influencer)
-                    continue unless id_str?
-                    influencer = JSON.stringify {name, followers_count, description, location, url}
-                    yield redisClient.hset('influencers', screen_name, influencer)
-                break if cursor is '0'
-            redisClient.quit()
-            console.log 'influencers streamlined'
-            cb?()
-        .catch (err) ->
-            console.error err.stack
-        yield return
 
     app.use route.get '/memory', (next) ->
         @body = process.memoryUsage()
