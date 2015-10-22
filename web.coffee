@@ -61,6 +61,8 @@ start = ->
               th:first-child {text-align: left;}
               table {border-collapse: collapse;}
               table, td, th {border: 1px solid black;}
+              th.trivia, td.trivia {border: 1px solid #eee; color:#eee;}
+              th.trivia *, td.trivia * {color:#eee;}
               .explain {font-size: x-small; color:#ccc;}
             </style>
           </head>
@@ -76,7 +78,7 @@ start = ->
                   queue
                   <div class="explain">Backlog</div>
                 </th>
-                <th>
+                <th class="trivia">
                   discarded
                   <div class="explain">Memory pressure</div>
                 </th>
@@ -91,7 +93,7 @@ start = ->
                 <td>#{commatize stats.user.popped or 0}</td>
                 <td>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{commatize stats.user.pushed or 0}</td>
                 <td rowspan=2>#{if stats.user.discarded then "&ge;&nbsp;" else ""}#{commatize stats.user.queue or 0}</td>
-                <td>#{commatize stats.user.discarded or 0}</td>
+                <td class="trivia">#{commatize stats.user.discarded or 0}</td>
               </tr>
 
               <tr>
@@ -105,7 +107,7 @@ start = ->
                   </div>
                 </th>
                 <td colspan=2>#{commatize stats.influencers}</td>
-                <td>0</td>
+                <td class="trivia">0</td>
               </tr>
 
               <tr>
@@ -118,7 +120,7 @@ start = ->
                 <td>#{commatize stats.followers.popped or 0}</td>
                 <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{commatize stats.followers.pushed or 0}</td>
                 <td>#{if stats.followers.discarded then "&ge;&nbsp;" else ""}#{commatize stats.followers.queue or 0}</td>
-                <td>#{commatize stats.followers.discarded or 0}</td>
+                <td class="trivia">#{commatize stats.followers.discarded or 0}</td>
               </tr>
 
               <tr>
@@ -131,7 +133,7 @@ start = ->
                 <td>#{commatize stats.friends.popped or 0}</td>
                 <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{commatize stats.friends.pushed or 0}</td>
                 <td>#{if stats.friends.discarded then "&ge;&nbsp;" else ""}#{commatize stats.friends.queue or 0}</td>
-                <td>#{commatize stats.friends.discarded or 0}</td>
+                <td class="trivia">#{commatize stats.friends.discarded or 0}</td>
               </tr>
             </table>
 
@@ -198,6 +200,13 @@ start = ->
     app.use route.get '/loadavg', (next) ->
         @body = os.loadavg()
         yield return
+
+    # app.use route.get '/react', (next) ->
+    #     #require 'coffee-react/register'
+    #     #React = require 'react'
+    #     #yield React.render require('./index')()
+    #     @body = """<script src="index.js"></script>"""
+    # app.use route.get '/index.js', (next) ->
 
     app.listen(port)
 
