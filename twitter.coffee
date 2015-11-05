@@ -37,15 +37,16 @@ class Queue
         @blockingRedis = undefined
 
     push: (value) ->
-        # encourage shrinkage and queue-exclusion freshness
-        # i.e., remove some random "stale" values if capped
+        # encourage reactive shrinkage (remove more than adding)
+        # encourage pushed-value freshness (preferring the new values)
         # discarded values may be serendipitiously repushed
+        # for popped influencers, this will update their collected data
         if @pushedCap? and (@pushedCap < yield @redis.scard("#{@queueName}-pushed"))
             yield @redis.spop("#{@queueName}-pushed")
             yield @redis.spop("#{@queueName}-pushed")
             yield @redis.incrby("#{@queueName}-discarded", 2)
 
-        # there's no room in the queue either; do nothing further
+        # there's no room in the queue; do nothing further with value
         if @queueCap? and (@queueCap < yield @redis.llen("#{@queueName}-queue"))
             yield @redis.incr("#{@queueName}-discarded")
             return
