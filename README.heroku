@@ -8,7 +8,7 @@
     heroku open
     heroku logs --tail
 
-    heroku config:set      USER_PUSHED_CAP=4000000      USER_QUEUE_CAP=100000
+    heroku config:set      USER_PUSHED_CAP=12000000     USER_QUEUE_CAP=100000
     heroku config:set FOLLOWERS_PUSHED_CAP=120000  FOLLOWERS_QUEUE_CAP=100000
     heroku config:set   FRIENDS_PUSHED_CAP=120000    FRIENDS_QUEUE_CAP=100000
 
