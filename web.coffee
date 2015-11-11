@@ -107,6 +107,7 @@ start = ->
                   <div>
                     <a href="/influencers.csv">download all</a> or
                     <a href="/influencers.csv?offset=0&count=5000">top #{commatize Math.min(5000, stats.influencers)}</a>
+                    <a href="/influencers.csv?offset=0&count=5000&hasemail=1">with email</a>
                   </div>
                 </th>
                 <td colspan=2>#{commatize stats.influencers}</td>
@@ -164,8 +165,7 @@ start = ->
         @type = 'text/csv'
         @attachment()
         s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
-        console.log "csv header"
-        {offset, count} = @query
+        {offset, count, hasemail} = @query
         influencers = null
         if offset? or count?
             # lazily avoid this ZSET if downloading all
@@ -174,7 +174,6 @@ start = ->
             # TODO redis via Surveyer
             influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
             influencers = dictify(influencers)
-        console.log "csv influencers #{influencers?}"
         # HACK proceed in parallel to sending HTTP headers
         co (cb) ->
             # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
@@ -183,12 +182,12 @@ start = ->
             cursor = '0'
             loop
                 [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 100)
-                console.log "csv chunk"
                 for screen_name, influencer of dictify(influencersChunk)
                     {name, followers_count, description, location, url} = JSON.parse(influencer)
                     continue if influencers? and not influencers[screen_name]
                     description = description.replace(/\r/g, '\n')
                     email_address = email_re.exec(description)?[0]
+                    continue if hasemail? and not email_address
                     s.write([screen_name, followers_count, name, description, location, url, email_address])
                 break if cursor is '0'
                 
