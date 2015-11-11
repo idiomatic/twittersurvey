@@ -163,6 +163,8 @@ start = ->
         @body = s
         @type = 'text/csv'
         @attachment()
+        s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
+        console.log "csv header"
         {offset, count} = @query
         influencers = null
         if offset? or count?
@@ -172,7 +174,7 @@ start = ->
             # TODO redis via Surveyer
             influencers = yield redisClient.zrevrangebyscore('influence', '+inf', 5000, 'withscores', 'limit', offset, count)
             influencers = dictify(influencers)
-        s.write(['screen_name', 'followers_count', 'name', 'description', 'location', 'url', 'email_address'])
+        console.log "csv influencers #{influencers?}"
         # HACK proceed in parallel to sending HTTP headers
         co (cb) ->
             # HACK x@y.z is valid, but x@gmail and "x at gmail dot com" are not
@@ -180,7 +182,8 @@ start = ->
             # HACK fetch everything and filter here
             cursor = '0'
             loop
-                [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 1000)
+                [cursor, influencersChunk] = yield redisClient.hscan('influencers', cursor, 'COUNT', 100)
+                console.log "csv chunk"
                 for screen_name, influencer of dictify(influencersChunk)
                     {name, followers_count, description, location, url} = JSON.parse(influencer)
                     continue if influencers? and not influencers[screen_name]
