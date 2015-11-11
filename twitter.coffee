@@ -7,6 +7,7 @@ co      = require 'co'
 redis   = require 'redis'
 coRedis = require 'co-redis'
 limits  = require 'co-limits'
+wait    = require 'co-wait'
 Twit    = require 'twit'
 
 
@@ -70,10 +71,14 @@ class Queue
         return value
 
     stats: ->
-        pushed:    yield @redis.scard("#{@queueName}-pushed")
-        popped:    yield @redis.get("#{@queueName}-popped")
-        queue:     yield @redis.llen("#{@queueName}-queue")
-        discarded: yield @redis.get("#{@queueName}-discarded")
+        # prefer frozen stats (where available)
+        stats = yield @redis.hgetall("#{@queueName}-stats")
+        stats or=
+            pushed:    yield @redis.scard("#{@queueName}-pushed")
+            popped:    yield @redis.get("#{@queueName}-popped")
+            queue:     yield @redis.llen("#{@queueName}-queue")
+            discarded: yield @redis.get("#{@queueName}-discarded")
+        return stats
 
 
 # function decorator to apply x-rate-limit headers
@@ -85,7 +90,7 @@ rateLimiter = (options) ->
     f = (fn) ->
         delay = waitUntil - now()
         if delay > 0
-            yield (cb) -> setTimeout cb, delay
+            yield wait(delay)
         # HACK eat errors
         [data, response] = yield (cb) ->
             fn (err, args...) ->
@@ -133,14 +138,19 @@ class Surveyer
         lastInfluencer: yield =>
             influencer = yield @redis.get('lastinfluencer')
             return JSON.parse(influencer or 'null')
+        stopped:        yield @redis.get('stopped')
 
     users: =>
         assert @twitter
         loop
+            if yield @redis.get('stopped')
+                yield wait(5000)
+                continue
+
             followedIds = [yield @userQueue.pop()]
 
             # HACK since blpop(..., timeout) does not work; 100ms queue top-off
-            yield (cb) -> setTimeout cb, 100
+            yield wait(100)
 
             # add up to 99 more possible influencers
             for i in [1...100]
@@ -176,6 +186,10 @@ class Surveyer
     followers: =>
         assert @twitter
         loop
+            if yield @redis.get('stopped')
+                yield wait(5000)
+                continue
+
             id = yield @followersQueue.pop()
             [{ids}] = yield @followersIdsLimit (cb) =>
                 @twitter.get('followers/ids', {user_id:id, count:5000}, cb)
@@ -187,6 +201,10 @@ class Surveyer
     friends: =>
         assert @twitter
         loop
+            if yield @redis.get('stopped')
+                yield wait(5000)
+                continue
+
             id = yield @friendsQueue.pop()
             [{ids}] = yield @friendsIdsLimit (cb) =>
                 @twitter.get('friends/ids', {user_id:id, count:5000}, cb)

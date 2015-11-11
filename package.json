@@ -12,6 +12,7 @@
     "co": "^4.6.0",
     "co-limits": "0.0.3",
     "co-redis": "^1.2.2",
+    "co-wait": "0.0.0",
     "coffee-script": "^1.10.0",
     "fast-csv": "^0.6.0",
     "koa": "^1.1.0",

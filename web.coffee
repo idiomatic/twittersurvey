@@ -57,6 +57,7 @@ start = ->
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
             <style>
               body {font-family: Sans-Serif;}
+              #{if stats.stopped then "body {background-color:#fff9f9;}" else ""}
               th, td {text-align: right; padding: 0.5em;}
               th:first-child {text-align: left;}
               table {border-collapse: collapse;}
@@ -64,9 +65,11 @@ start = ->
               th.trivia, td.trivia {border: 1px solid #eee; color:#eee;}
               th.trivia *, td.trivia * {color:#eee;}
               .explain {font-size: x-small; color:#ccc;}
+              h1 {color:#f00;}
             </style>
           </head>
           <body>
+            #{if stats.stopped then "<h1>stopped</h1>" else ""}
             <h2>Statistics</h2>
 
             <table>
@@ -200,13 +203,6 @@ start = ->
     app.use route.get '/loadavg', (next) ->
         @body = os.loadavg()
         yield return
-
-    # app.use route.get '/react', (next) ->
-    #     #require 'coffee-react/register'
-    #     #React = require 'react'
-    #     #yield React.render require('./index')()
-    #     @body = """<script src="index.js"></script>"""
-    # app.use route.get '/index.js', (next) ->
 
     app.listen(port)
 
