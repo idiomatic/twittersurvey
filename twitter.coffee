@@ -138,12 +138,12 @@ class Surveyer
         lastInfluencer: yield =>
             influencer = yield @redis.get('lastinfluencer')
             return JSON.parse(influencer or 'null')
-        stopped:        yield @redis.get('stopped')
+        paused:         yield @redis.get('paused')
 
     users: =>
         assert @twitter
         loop
-            if yield @redis.get('stopped')
+            if yield @redis.get('paused')
                 yield wait(5000)
                 continue
 
@@ -186,7 +186,7 @@ class Surveyer
     followers: =>
         assert @twitter
         loop
-            if yield @redis.get('stopped')
+            if yield @redis.get('paused')
                 yield wait(5000)
                 continue
 
@@ -201,7 +201,7 @@ class Surveyer
     friends: =>
         assert @twitter
         loop
-            if yield @redis.get('stopped')
+            if yield @redis.get('paused')
                 yield wait(5000)
                 continue
 

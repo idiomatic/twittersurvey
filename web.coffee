@@ -11,6 +11,7 @@ route     = require 'koa-route'
 co        = require 'co'
 redis     = require 'redis'
 coRedis   = require 'co-redis'
+wait      = require 'co-wait'
 csv       = require 'fast-csv'
 survey    = require './twitter'
 
@@ -57,7 +58,7 @@ start = ->
             <link rel="stylesheet" href="https://cdn.rawgit.com/mohsen1/json-formatter-js/master/dist/style.css" />
             <style>
               body {font-family: Sans-Serif;}
-              #{if stats.stopped then "body {background-color:#fff9f9;}" else ""}
+              #{if stats.paused then "body {background-color:#fff9f9;}" else ""}
               th, td {text-align: right; padding: 0.5em;}
               th:first-child {text-align: left;}
               table {border-collapse: collapse;}
@@ -69,7 +70,7 @@ start = ->
             </style>
           </head>
           <body>
-            #{if stats.stopped then "<h1>stopped</h1>" else ""}
+            #{if stats.paused then "<h1>paused</h1>" else ""}
             <h2>Statistics</h2>
 
             <table>
@@ -190,6 +191,7 @@ start = ->
                     continue if hasemail? and not email_address
                     s.write([screen_name, followers_count, name, description, location, url, email_address])
                 break if cursor is '0'
+                yield wait(10)
                 
             s.end()
             redisClient.quit()
